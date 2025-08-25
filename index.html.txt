@@ -1,0 +1,907 @@
+!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+<meta charset="utf-8" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<title>Directorio de Correos de Empleos (RD)</title>
+
+<meta name="description" content="Gestor simple para correos de empleos de empresas dominicanas: importar CSV, filtrar, copiar y exportar." />
+
+<style>
+
+  :root{
+
+    --bg:#0f172a;        /* slate-900 */
+
+    --card:#111827;      /* gray-900 */
+
+    --muted:#94a3b8;     /* slate-400 */
+
+    --text:#e5e7eb;      /* gray-200 */
+
+    --accent:#22d3ee;    /* cyan-400 */
+
+    --ok:#34d399;        /* green-400 */
+
+    --warn:#fbbf24;      /* amber-400 */
+
+    --err:#f87171;       /* red-400 */
+
+    --border:#1f2937;    /* gray-800 */
+
+  }
+
+  *{box-sizing:border-box}
+
+  html,body{height:100%}
+
+  body{
+
+    margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+
+  }
+
+  header{
+
+    padding:24px 16px; border-bottom:1px solid var(--border);
+
+    background:linear-gradient(180deg, rgba(34,211,238,.08), transparent 60%);
+
+  }
+
+  .wrap{max-width:1100px; margin:0 auto; padding:16px}
+
+  h1{margin:0; font-size:clamp(22px,3vw,28px)}
+
+  .sub{color:var(--muted); margin-top:6px}
+
+  .toolbar{
+
+    display:grid; gap:10px; grid-template-columns:repeat(12,1fr); margin-top:14px;
+
+  }
+
+  .toolbar > *{min-width:0}
+
+  input[type="text"], select{
+
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#0b1220; color:var(--text);
+
+    outline:none;
+
+  }
+
+  input::placeholder{color:#64748b}
+
+  .btn{
+
+    appearance:none; border:1px solid var(--border); background:#0b1220; color:var(--text);
+
+    padding:10px 12px; border-radius:10px; cursor:pointer; white-space:nowrap;
+
+  }
+
+  .btn:hover{border-color:#334155}
+
+  .btn.accent{border-color:transparent; background:linear-gradient(180deg, rgba(34,211,238,.18), rgba(34,211,238,.1));}
+
+  .btn.ok{background:linear-gradient(180deg, rgba(52,211,153,.18), rgba(52,211,153,.1)); border-color:transparent;}
+
+  .btn.warn{background:linear-gradient(180deg, rgba(251,191,36,.18), rgba(251,191,36,.1)); border-color:transparent;}
+
+  .btn.err{background:linear-gradient(180deg, rgba(248,113,113,.18), rgba(248,113,113,.1)); border-color:transparent;}
+
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px}
+
+  .grid{display:grid; gap:12px}
+
+  .grid.cols-2{grid-template-columns:1fr 1fr}
+
+  .grid.cols-3{grid-template-columns:repeat(3,1fr)}
+
+  .grid.cols-4{grid-template-columns:repeat(4,1fr)}
+
+  table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden}
+
+  thead th{
+
+    text-align:left; font-weight:600; font-size:14px; color:#cbd5e1; padding:10px 8px; background:#0b1220; position:sticky; top:0; z-index:2;
+
+    border-bottom:1px solid var(--border);
+
+  }
+
+  tbody td{padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:top; font-size:14px}
+
+  tbody tr:hover{background:#0b1322}
+
+  .muted{color:var(--muted)}
+
+  .pill{display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--border); font-size:12px; color:#cbd5e1}
+
+  .row-actions{display:flex; gap:8px; flex-wrap:wrap}
+
+  .table-wrap{max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:12px}
+
+  .hint{font-size:12px; color:var(--muted)}
+
+  .footer{color:#94a3b8; font-size:12px; padding:12px 0 24px}
+
+  .tag{font-size:12px}
+
+  .sr{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
+
+  @media (max-width:900px){
+
+    .toolbar{grid-template-columns:1fr 1fr}
+
+    .grid.cols-3,.grid.cols-4{grid-template-columns:1fr}
+
+    .table-wrap{max-height:50vh}
+
+  }
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+  <div class="wrap">
+
+    <h1>Directorio de Correos de Empleos — RD</h1>
+
+    <div class="sub">Importa tu CSV, filtra por sector/ubicación, copia emails y exporta. Los datos se guardan localmente en tu navegador.</div>
+
+
+
+    <div class="toolbar">
+
+      <input id="q" type="text" placeholder="Buscar por empresa, email, sector o ubicación…" />
+
+      <select id="sectorFilter" title="Filtrar por sector">
+
+        <option value="">Todos los sectores</option>
+
+      </select>
+
+      <select id="ubicacionFilter" title="Filtrar por ubicación">
+
+        <option value="">Todas las ubicaciones</option>
+
+      </select>
+
+      <button class="btn accent" id="btnImportar">Importar CSV</button>
+
+      <input class="sr" id="file" type="file" accept=".csv" />
+
+      <button class="btn ok" id="btnExportar">Exportar CSV</button>
+
+      <button class="btn" id="btnCopiarSeleccion">Copiar emails seleccionados</button>
+
+      <button class="btn warn" id="btnCopiarTodos">Copiar todos (filtrados)</button>
+
+      <button class="btn err" id="btnLimpiar">Vaciar todo</button>
+
+    </div>
+
+    <div class="hint">Sugerencia: usa la <a href="sandbox:/mnt/data/plantilla_correos_empleos_do.csv" target="_blank" rel="noopener">plantilla CSV</a> (encabezados: <code>empresa,email,sector,ubicacion,website,notas</code>).</div>
+
+  </div>
+
+</header>
+
+
+
+<main class="wrap">
+
+  <section class="card">
+
+    <h2 style="margin:0 0 12px 0; font-size:18px">Agregar contacto manualmente</h2>
+
+    <div class="grid cols-4">
+
+      <input id="empresa" placeholder="Empresa *" />
+
+      <input id="email" placeholder="Email *" />
+
+      <input id="sector" placeholder="Sector" />
+
+      <input id="ubicacion" placeholder="Ubicación" />
+
+      <input id="website" placeholder="Website (https://…)" />
+
+      <input id="notas" placeholder="Notas (ej. 'Asunto del correo')" />
+
+      <button class="btn ok" id="btnAgregar">Agregar</button>
+
+      <div class="hint">Se validará el email y no se duplicará si ya existe.</div>
+
+    </div>
+
+  </section>
+
+
+
+  <section style="margin-top:16px">
+
+    <div class="table-wrap">
+
+      <table id="tabla">
+
+        <thead>
+
+          <tr>
+
+            <th><input id="checkAll" type="checkbox" title="Seleccionar todo" /></th>
+
+            <th>Empresa</th>
+
+            <th>Email</th>
+
+            <th>Sector</th>
+
+            <th>Ubicación</th>
+
+            <th>Website</th>
+
+            <th>Notas</th>
+
+            <th>Acciones</th>
+
+          </tr>
+
+        </thead>
+
+        <tbody id="tbody">
+
+          <!-- filas -->
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <div style="margin-top:8px" class="hint" id="stats"></div>
+
+  </section>
+
+
+
+  <section class="footer">
+
+    <strong>Notas de uso responsable:</strong> Verifica el consentimiento y políticas de privacidad de cada empresa antes de enviar correos masivos. Mantén la lista actualizada y evita SPAM.
+
+  </section>
+
+</main>
+
+
+
+<script>
+
+(function(){
+
+  const LS_KEY = "rd-jobs-v1";
+
+  /** @type {Array<{id:string,empresa:string,email:string,sector:string,ubicacion:string,website:string,notas:string}>} */
+
+  let data = [];
+
+  let q = "", fSector = "", fUbic = "";
+
+
+
+  // Utilidades
+
+  const $ = sel => document.querySelector(sel);
+
+  const el = (tag, props={}, children=[])=>{
+
+    const n = document.createElement(tag);
+
+    Object.assign(n, props);
+
+    for(const c of children) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+
+    return n;
+
+  };
+
+  const emailOk = (s)=> /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||"").trim());
+
+  const uid = ()=> Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+
+  const normalize = s => (s||"").toString().trim();
+
+
+
+  // LocalStorage
+
+  const save = ()=> localStorage.setItem(LS_KEY, JSON.stringify(data));
+
+  const load = ()=>{
+
+    try{
+
+      const raw = localStorage.getItem(LS_KEY);
+
+      data = raw ? JSON.parse(raw) : [];
+
+    }catch{ data = []; }
+
+  };
+
+
+
+  // Render
+
+  const tbody = $("#tbody");
+
+  const sectorFilter = $("#sectorFilter");
+
+  const ubicacionFilter = $("#ubicacionFilter");
+
+  const stats = $("#stats");
+
+  const checkAll = $("#checkAll");
+
+
+
+  const renderFilters = ()=>{
+
+    const sectors = Array.from(new Set(data.map(x=>x.sector).filter(Boolean))).sort();
+
+    const ubic = Array.from(new Set(data.map(x=>x.ubicacion).filter(Boolean))).sort();
+
+    sectorFilter.innerHTML = '<option value="">Todos los sectores</option>' + sectors.map(s=>`<option${s===fSector?' selected':''}>${s}</option>`).join("");
+
+    ubicacionFilter.innerHTML = '<option value="">Todas las ubicaciones</option>' + ubic.map(s=>`<option${s===fUbic?' selected':''}>${s}</option>`).join("");
+
+  };
+
+
+
+  const copyToClipboard = async (text)=>{
+
+    try{
+
+      await navigator.clipboard.writeText(text);
+
+      toast("Copiado al portapapeles");
+
+    }catch(e){
+
+      alert("No se pudo copiar automáticamente. Selecciona y copia manualmente:\n\n"+text);
+
+    }
+
+  };
+
+
+
+  let toastTimer;
+
+  const toast = (msg)=>{
+
+    clearTimeout(toastTimer);
+
+    let t = $("#toast");
+
+    if(!t){
+
+      t = el("div",{id:"toast",style:"position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0b1220;border:1px solid var(--border);padding:10px 12px;border-radius:10px;z-index:9999;color:#e5e7eb"});
+
+      document.body.appendChild(t);
+
+    }
+
+    t.textContent = msg;
+
+    t.style.opacity = "1";
+
+    toastTimer = setTimeout(()=>{ t.style.opacity = "0"; }, 1600);
+
+  };
+
+
+
+  const filtered = ()=>{
+
+    const qq = q.toLowerCase();
+
+    return data.filter(x=>{
+
+      const matchesQ = !qq || [x.empresa,x.email,x.sector,x.ubicacion].some(f=> (f||"").toLowerCase().includes(qq));
+
+      const okSector = !fSector || x.sector === fSector;
+
+      const okUbic = !fUbic || x.ubicacion === fUbic;
+
+      return matchesQ && okSector && okUbic;
+
+    });
+
+  };
+
+
+
+  const render = ()=>{
+
+    const rows = filtered();
+
+    tbody.innerHTML = "";
+
+    for(const r of rows){
+
+      const tr = el("tr");
+
+      const cb = el("input",{type:"checkbox", "data-id":r.id, className:"rowcb"});
+
+      tr.appendChild(el("td",{},[cb]));
+
+      tr.appendChild(el("td",{},[el("div",{textContent:r.empresa||"-"})]));
+
+      tr.appendChild(el("td",{},[
+
+        el("div",{textContent:r.email||"-"}),
+
+        el("div",{className:"muted tag"},[!emailOk(r.email)?"⚠︎ email no válido":""])
+
+      ]));
+
+      tr.appendChild(el("td",{},[el("span",{className:"pill"},[r.sector||"—"])]));
+
+      tr.appendChild(el("td",{},[el("div",{textContent:r.ubicacion||"—"} )]));
+
+      tr.appendChild(el("td",{},[
+
+        r.website ? el("a",{href:r.website,target:"_blank",rel:"noopener",textContent:shortUrl(r.website)}) : el("span",{className:"muted"},["—"])
+
+      ]));
+
+      tr.appendChild(el("td",{},[el("div",{textContent:r.notas||"—"})]));
+
+      const actions = el("div",{className:"row-actions"},[
+
+        btn("Copiar", ()=> copyToClipboard(r.email)),
+
+        btn("Editar", ()=> editRow(r.id)),
+
+        btn("Eliminar", ()=> removeRow(r.id))
+
+      ]);
+
+      tr.appendChild(el("td",{},[actions]));
+
+      tbody.appendChild(tr);
+
+    }
+
+    stats.textContent = `${rows.length} contacto(s) mostrados · ${data.length} en total`;
+
+    checkAll.checked = false;
+
+    renderFilters();
+
+  };
+
+
+
+  const shortUrl = (u)=>{
+
+    try{
+
+      const {hostname} = new URL(u);
+
+      return hostname.replace(/^www\./,"");
+
+    }catch{ return u||"—"; }
+
+  };
+
+
+
+  const btn = (label, onClick)=>{
+
+    const b = el("button",{className:"btn", type:"button", textContent:label});
+
+    b.addEventListener("click", onClick);
+
+    return b;
+
+  };
+
+
+
+  // CRUD
+
+  const addRow = (row)=>{
+
+    const r = {
+
+      id: uid(),
+
+      empresa: normalize(row.empresa),
+
+      email: normalize(row.email),
+
+      sector: normalize(row.sector),
+
+      ubicacion: normalize(row.ubicacion),
+
+      website: normalize(row.website),
+
+      notas: normalize(row.notas)
+
+    };
+
+    if(!r.empresa || !r.email) return toast("Empresa y Email son obligatorios");
+
+    if(!emailOk(r.email)) return toast("El email no parece válido");
+
+    if(data.some(x=>x.email.toLowerCase()===r.email.toLowerCase())) return toast("Ese email ya existe");
+
+    data.push(r);
+
+    save(); render();
+
+  };
+
+
+
+  const removeRow = (id)=>{
+
+    if(!confirm("¿Eliminar este contacto?")) return;
+
+    data = data.filter(x=>x.id!==id);
+
+    save(); render();
+
+  };
+
+
+
+  const editRow = (id)=>{
+
+    const row = data.find(x=>x.id===id);
+
+    if(!row) return;
+
+    const empresa = prompt("Empresa:", row.empresa||"");
+
+    if(empresa===null) return;
+
+    const email = prompt("Email:", row.email||"");
+
+    if(email===null) return;
+
+    if(!emailOk(email)) return toast("Email no válido");
+
+    if(data.some(x=>x.id!==id && x.email.toLowerCase()===email.toLowerCase())) return toast("Ese email ya existe");
+
+    const sector = prompt("Sector:", row.sector||"");
+
+    if(sector===null) return;
+
+    const ubicacion = prompt("Ubicación:", row.ubicacion||"");
+
+    if(ubicacion===null) return;
+
+    const website = prompt("Website:", row.website||"");
+
+    if(website===null) return;
+
+    const notas = prompt("Notas:", row.notas||"");
+
+    if(notas===null) return;
+
+    Object.assign(row,{empresa,email,sector,ubicacion,website,notas});
+
+    save(); render();
+
+  };
+
+
+
+  // Import/Export
+
+  const parseCSV = async(file)=>{
+
+    const text = await file.text();
+
+    const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
+
+    const header = lines.shift();
+
+    const cols = header.split(",").map(h=>h.trim().toLowerCase());
+
+    const need = ["empresa","email","sector","ubicacion","website","notas"];
+
+    const missing = need.filter(n=>!cols.includes(n));
+
+    if(missing.length) throw new Error("Faltan columnas: "+missing.join(", "));
+
+    const idx = Object.fromEntries(cols.map((c,i)=>[c,i]));
+
+    const rows = [];
+
+    for(const line of lines){
+
+      const parts = splitCSV(line);
+
+      if(parts.length!==cols.length) continue; // tolerancia
+
+      rows.push({
+
+        empresa: parts[idx.empresa]||"",
+
+        email: parts[idx.email]||"",
+
+        sector: parts[idx.sector]||"",
+
+        ubicacion: parts[idx.ubicacion]||"",
+
+        website: parts[idx.website]||"",
+
+        notas: parts[idx.notas]||""
+
+      });
+
+    }
+
+    return rows;
+
+  };
+
+
+
+  // CSV simple (maneja comillas y comas)
+
+  const splitCSV = (line)=>{
+
+    const out=[]; let cur=""; let inQ=false;
+
+    for(let i=0;i<line.length;i++){
+
+      const ch=line[i];
+
+      if(ch==='\"'){
+
+        if(inQ && line[i+1]==='\"'){ cur+='\"'; i++; }
+
+        else inQ=!inQ;
+
+      }else if(ch===',' && !inQ){
+
+        out.push(cur); cur="";
+
+      }else{
+
+        cur+=ch;
+
+      }
+
+    }
+
+    out.push(cur);
+
+    return out.map(s=>s.replace(/^\s+|\s+$/g,""));
+
+  };
+
+
+
+  const toCSV = (rows)=>{
+
+    const esc = s=> `"${String(s??"").replace(/"/g,'""')}"`;
+
+    const head = "empresa,email,sector,ubicacion,website,notas";
+
+    const body = rows.map(r=>[r.empresa,r.email,r.sector,r.ubicacion,r.website,r.notas].map(esc).join(",")).join("\n");
+
+    return head + "\n" + body;
+
+  };
+
+
+
+  const importRows = (rows)=>{
+
+    let added=0, skipped=0;
+
+    for(const r of rows){
+
+      const obj = {
+
+        id: uid(),
+
+        empresa: normalize(r.empresa),
+
+        email: normalize(r.email),
+
+        sector: normalize(r.sector),
+
+        ubicacion: normalize(r.ubicacion),
+
+        website: normalize(r.website),
+
+        notas: normalize(r.notas)
+
+      };
+
+      if(!obj.empresa || !obj.email || !emailOk(obj.email)){ skipped++; continue; }
+
+      if(data.some(x=>x.email.toLowerCase()===obj.email.toLowerCase())){ skipped++; continue; }
+
+      data.push(obj); added++;
+
+    }
+
+    save(); render();
+
+    toast(`Importación: ${added} agregado(s), ${skipped} omitido(s)`);
+
+  };
+
+
+
+  const exportCurrent = ()=>{
+
+    const rows = filtered();
+
+    const blob = new Blob([toCSV(rows)], {type:"text/csv;charset=utf-8"});
+
+    const url = URL.createObjectURL(blob);
+
+    const a = el("a",{href:url, download:"correos_empleos_rd.csv"});
+
+    document.body.appendChild(a); a.click(); a.remove();
+
+    URL.revokeObjectURL(url);
+
+  };
+
+
+
+  // Selección y copia
+
+  const selectedEmails = ()=>{
+
+    const ids = Array.from(document.querySelectorAll(".rowcb:checked")).map(cb=>cb.getAttribute("data-id"));
+
+    const emails = data.filter(r=>ids.includes(r.id)).map(r=>r.email);
+
+    return Array.from(new Set(emails)).join(", ");
+
+  };
+
+  const allFilteredEmails = ()=>{
+
+    const emails = filtered().map(r=>r.email);
+
+    return Array.from(new Set(emails)).join(", ");
+
+  };
+
+
+
+  // Eventos UI
+
+  $("#q").addEventListener("input", e=>{ q = e.target.value; render(); });
+
+  sectorFilter.addEventListener("change", e=>{ fSector = e.target.value; render(); });
+
+  ubicacionFilter.addEventListener("change", e=>{ fUbic = e.target.value; render(); });
+
+
+
+  $("#btnImportar").addEventListener("click", ()=> $("#file").click());
+
+  $("#file").addEventListener("change", async(e)=>{
+
+    const file = e.target.files?.[0];
+
+    if(!file) return;
+
+    try{
+
+      const rows = await parseCSV(file);
+
+      importRows(rows);
+
+    }catch(err){
+
+      alert("Error importando: " + err.message);
+
+    }finally{
+
+      e.target.value = "";
+
+    }
+
+  });
+
+
+
+  $("#btnExportar").addEventListener("click", exportCurrent);
+
+  $("#btnCopiarSeleccion").addEventListener("click", ()=> {
+
+    const text = selectedEmails();
+
+    if(!text) return toast("Selecciona al menos un contacto");
+
+    copyToClipboard(text);
+
+  });
+
+  $("#btnCopiarTodos").addEventListener("click", ()=> {
+
+    const text = allFilteredEmails();
+
+    if(!text) return toast("No hay correos en el filtro actual");
+
+    copyToClipboard(text);
+
+  });
+
+  $("#btnLimpiar").addEventListener("click", ()=>{
+
+    if(!confirm("Esto eliminará TODOS los contactos guardados. ¿Continuar?")) return;
+
+    data = []; save(); render();
+
+  });
+
+  checkAll.addEventListener("change", e=>{
+
+    document.querySelectorAll(".rowcb").forEach(cb=> cb.checked = e.target.checked);
+
+  });
+
+
+
+  $("#btnAgregar").addEventListener("click", ()=>{
+
+    addRow({
+
+      empresa: $("#empresa").value,
+
+      email: $("#email").value,
+
+      sector: $("#sector").value,
+
+      ubicacion: $("#ubicacion").value,
+
+      website: $("#website").value,
+
+      notas: $("#notas").value
+
+    });
+
+    ["empresa","email","sector","ubicacion","website","notas"].forEach(id=> $("#"+id).value="");
+
+  });
+
+
+
+  // Init
+
+  load(); render();
+
+})();
+
+</script>
+
+</body>
+
+</html>
